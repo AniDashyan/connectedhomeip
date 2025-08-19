@@ -232,7 +232,7 @@ private:
     Optional<System::Clock::Seconds32> mMinCommissioningTimeoutOverride;
 
 
-    friend class Test::CommissioningWindowManagerAccess;
+    friend class Test::CommissioningWindowManagerTestAccess;
     // The PASE session we are using, so we can handle CloseSession properly.
     SessionHolderWithDelegate mPASESession;
 
