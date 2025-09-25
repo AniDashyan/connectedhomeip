@@ -45,6 +45,8 @@
 #include <inet/InetConfig.h>
 #include <lib/core/CHIPConfig.h>
 #include <lib/support/SafeInt.h>
+#include <lib/dnssd/IDnssdServer.h>
+#include <app/server/PlatformDnssdServer.h>
 #include <messaging/ExchangeMgr.h>
 #include <platform/DeviceInstanceInfoProvider.h>
 #include <platform/KeyValueStoreManager.h>
@@ -473,9 +475,20 @@ public:
     }
 
     static Server & GetInstance() { return sServer; }
+    void SetDnssdServer(Dnssd::IDnssdServer * dnssdServer)
+    {
+        if (dnssdServer != nullptr)
+        {
+            mDnssdServer = dnssdServer;
+        }
+        else
+        {
+            mDnssdServer = &mDefaultDnssdServer;
+        }
+    }
 
 private:
-    Server() {}
+    Server() : mDnssdServer(&mDefaultDnssdServer) {}
 
     static Server sServer;
 
@@ -598,6 +611,8 @@ private:
             (void) fabricTable;
             ClearCASEResumptionStateOnFabricChange(fabricIndex);
         }
+
+
 
     private:
         void ClearCASEResumptionStateOnFabricChange(chip::FabricIndex fabricIndex)
@@ -729,6 +744,10 @@ private:
     Crypto::OperationalKeystore * mOperationalKeystore;
     Credentials::OperationalCertificateStore * mOpCertStore;
     app::FailSafeContext mFailSafeContext;
+
+    // For dependency injection of DNSSD server implementation
+    Dnssd::IDnssdServer * mDnssdServer;
+    app::PlatformDnssdServer mDefaultDnssdServer;
 
     bool mIsDnssdReady = false;
     uint16_t mOperationalServicePort;

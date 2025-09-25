@@ -30,6 +30,7 @@
 #include <protocols/secure_channel/PASESession.h>
 #include <system/SystemClock.h>
 
+#include <app/server/PlatformDnssdServer.h>
 #include <lib/dnssd/IDnssdServer.h>
 
 namespace chip {
@@ -54,7 +55,7 @@ class CommissioningWindowManager : public Messaging::UnsolicitedMessageHandler,
 {
 public:
     CommissioningWindowManager() : mPASESession(*this), mDnsSdServer(&mDefaultDnssd) {}
-    CommissioningWindowManager(IDnssdServer * dnssd) : CommissioningWindowManager() { mDnsSdServer = dnssd; }
+    CommissioningWindowManager(Dnssd::IDnssdServer * dnssd) : CommissioningWindowManager() { mDnsSdServer = dnssd; }
 
     CHIP_ERROR Init(Server * server)
     {
@@ -239,8 +240,8 @@ private:
     SessionHolderWithDelegate mPASESession;
 
     // For testing purposes use a dependency injection
-    IDnssdServer * mDnsSdServer;
-    PlatformDnssdServer mDefaultDnssd;
+    Dnssd::IDnssdServer * mDnsSdServer;
+    app::PlatformDnssdServer mDefaultDnssd;
 
     // Information about who opened the commissioning window.  These will only
     // be non-null if the window was opened via the operational credentials
