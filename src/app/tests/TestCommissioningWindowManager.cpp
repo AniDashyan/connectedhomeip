@@ -25,6 +25,7 @@
 #include <data-model-providers/codegen/CodegenDataModelProvider.h>
 #include <lib/dnssd/Advertiser.h>
 #include <lib/support/Span.h>
+#include <messaging/tests/MessagingContext.h>
 #include <messaging/tests/echo/common.h>
 #include <platform/CHIPDeviceLayer.h>
 #include <platform/CommissionableDataProvider.h>
@@ -32,6 +33,7 @@
 #include <platform/PlatformManager.h>
 #include <platform/TestOnlyCommissionableDataProvider.h>
 #include <protocols/secure_channel/PASESession.h>
+#include <transport/Session.h>
 
 #include <lib/core/StringBuilderAdapters.h>
 #include <pw_unit_test/framework.h>
@@ -159,10 +161,22 @@ private:
     bool mIsStopped;
 };
 
+class TestSecurePairingDelegate : public chip::SessionEstablishmentDelegate
+{
+public:
+    void OnSessionEstablishmentError(CHIP_ERROR error) override { mNumPairingErrors++; }
+
+    void OnSessionEstablished(const chip::SessionHandle & session) override { mNumPairingComplete++; }
+
+    uint32_t mNumPairingErrors   = 0;
+    uint32_t mNumPairingComplete = 0;
+};
+
 class TestCommissioningWindowManager : public ::testing::Test
 {
 public:
     static MockDnssdServer mMockDnssd;
+    static chip::Test::LoopbackMessagingContext mLoopbackContext;
 
     static void SetUpTestSuite()
     {
@@ -187,6 +201,9 @@ public:
         ASSERT_EQ(chip::Server::GetInstance().Init(initParams), CHIP_NO_ERROR);
         Server::GetInstance().GetCommissioningWindowManager().CloseCommissioningWindow();
         Server::GetInstance().GetCommissioningWindowManager().SetDnssdServer(&mMockDnssd);
+
+        // mLoopbackContext.SetUpTestSuite();
+        ASSERT_EQ(mLoopbackContext.Init(&mLoopbackContext.GetTransportMgr(), &mLoopbackContext.GetIOContext()), CHIP_NO_ERROR);
     }
     static void TearDownTestSuite()
     {
@@ -203,6 +220,8 @@ public:
         mdnsAdvertiser.Shutdown();
 
         Server::GetInstance().GetCommissioningWindowManager().SetDnssdServer(&(Server::GetInstance().GetDefaultDnssdServer()));
+        // mLoopbackContext.TearDownTestSuite();
+        mLoopbackContext.Shutdown();
         // Server shudown will be called in TearDownTask
 
         // TODO: At this point UDP endpoits still seem leaked and the sanitizer
@@ -217,6 +236,7 @@ public:
 };
 
 MockDnssdServer TestCommissioningWindowManager::mMockDnssd;
+chip::Test::LoopbackMessagingContext TestCommissioningWindowManager::mLoopbackContext;
 
 void CheckCommissioningWindowManagerBasicWindowOpenCloseTask(intptr_t context)
 {
@@ -562,5 +582,48 @@ TEST_F(TestCommissioningWindowManager, TestOnPlatformEventCloseAllBleConnections
     EXPECT_FALSE(chip::DeviceLayer::ConnectivityMgr().IsBLEAdvertisingEnabled());
 }
 #endif
+
+// TEST_F(TestCommissioningWindowManager, TestOnPlatformEventPASESession)
+// {
+//     CommissioningWindowManager & commissionMgr = Server::GetInstance().GetCommissioningWindowManager();
+//     chip::SessionManager & sessionMgr          = Server::GetInstance().GetSecureSessionManager();
+//     // chip::Messaging::ExchangeManager & exchangeMgr = Server::GetInstance().GetExchangeManager();
+
+//     // ECM parameters.
+//     uint16_t originDiscriminator;
+//     EXPECT_EQ(chip::DeviceLayer::GetCommissionableDataProvider()->GetSetupDiscriminator(originDiscriminator), CHIP_NO_ERROR);
+//     uint16_t newDiscriminator = static_cast<uint16_t>(originDiscriminator + 1);
+//     Spake2pVerifier verifier;
+//     constexpr uint32_t kIterations = kSpake2p_Min_PBKDF_Iterations;
+//     uint8_t salt[kSpake2p_Min_PBKDF_Salt_Length];
+//     chip::ByteSpan saltData(salt);
+
+//     constexpr auto fabricIndex = static_cast<chip::FabricIndex>(1);
+//     constexpr auto vendorId    = static_cast<chip::VendorId>(0xFFF3);
+//     EXPECT_EQ(commissionMgr.OpenEnhancedCommissioningWindow(commissionMgr.MaxCommissioningTimeout(), newDiscriminator, verifier,
+//                                                             kIterations, saltData, fabricIndex, vendorId),
+//               CHIP_NO_ERROR);
+//     EXPECT_TRUE(commissionMgr.IsCommissioningWindowOpen());
+//     EXPECT_EQ(commissionMgr.CommissioningWindowStatusForCluster(),
+//               chip::app::Clusters::AdministratorCommissioning::CommissioningWindowStatusEnum::kEnhancedWindowOpen);
+
+//     // Creating a PASE Session initiator and establish a connection.
+//     TestSecurePairingDelegate initiatorDelegate;
+//     chip::PASESession pairing;
+
+//     EXPECT_EQ(pairing.GetSecureSessionType(), chip::Transport::SecureSession::Type::kPASE);
+
+//     mLoopbackContext.SetUp();
+//     auto context                              = mLoopbackContext.NewUnauthenticatedExchangeToBob(&initiatorPASE);
+//     constexpr uint32_t sTestSpake2p01_PinCode = 20202021;
+
+//     // Start PASE pairing from initiator.
+//     EXPECT_EQ(pairing.Pair(sessionMgr, sTestSpake2p01_PinCode, chip::Optional<chip::ReliableMessageProtocolConfig>::Missing(),
+//                            context, &initiatorDelegate),
+//               CHIP_NO_ERROR);
+//     // EXPECT_EQ();
+//     // msgContext.DrainAndServiceIO();
+//     mLoopbackContext.TearDown();
+// }
 
 } // namespace
