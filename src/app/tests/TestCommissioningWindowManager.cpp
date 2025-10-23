@@ -202,11 +202,13 @@ public:
         Server::GetInstance().GetCommissioningWindowManager().CloseCommissioningWindow();
         Server::GetInstance().GetCommissioningWindowManager().SetDnssdServer(&mMockDnssd);
 
-        // mLoopbackContext.SetUpTestSuite();
-        ASSERT_EQ(mLoopbackContext.Init(&mLoopbackContext.GetTransportMgr(), &mLoopbackContext.GetIOContext()), CHIP_NO_ERROR);
+        mLoopbackContext.SetUpTestSuite();
+        // ASSERT_EQ(mLoopbackContext.Init(&mLoopbackContext.GetTransportMgr(), &mLoopbackContext.GetIOContext()), CHIP_NO_ERROR);
     }
     static void TearDownTestSuite()
     {
+        mLoopbackContext.TearDownTestSuite();
+        mLoopbackContext.Shutdown();
 
         // TODO: The platform memory was intentionally left not deinitialized so that minimal mdns can destruct
         chip::DeviceLayer::PlatformMgr().ScheduleWork(TearDownTask, 0);
@@ -220,8 +222,6 @@ public:
         mdnsAdvertiser.Shutdown();
 
         Server::GetInstance().GetCommissioningWindowManager().SetDnssdServer(&(Server::GetInstance().GetDefaultDnssdServer()));
-        // mLoopbackContext.TearDownTestSuite();
-        mLoopbackContext.Shutdown();
         // Server shudown will be called in TearDownTask
 
         // TODO: At this point UDP endpoits still seem leaked and the sanitizer
@@ -583,47 +583,55 @@ TEST_F(TestCommissioningWindowManager, TestOnPlatformEventCloseAllBleConnections
 }
 #endif
 
-// TEST_F(TestCommissioningWindowManager, TestOnPlatformEventPASESession)
-// {
-//     CommissioningWindowManager & commissionMgr = Server::GetInstance().GetCommissioningWindowManager();
-//     chip::SessionManager & sessionMgr          = Server::GetInstance().GetSecureSessionManager();
-//     // chip::Messaging::ExchangeManager & exchangeMgr = Server::GetInstance().GetExchangeManager();
+TEST_F(TestCommissioningWindowManager, TestOnPlatformEventPASESession)
+{
+    CommissioningWindowManager & commissionMgr = Server::GetInstance().GetCommissioningWindowManager();
+    chip::SessionManager & sessionMgr          = Server::GetInstance().GetSecureSessionManager();
+    chip::Messaging::ExchangeManager & exchangeMgr = Server::GetInstance().GetExchangeManager();
 
-//     // ECM parameters.
-//     uint16_t originDiscriminator;
-//     EXPECT_EQ(chip::DeviceLayer::GetCommissionableDataProvider()->GetSetupDiscriminator(originDiscriminator), CHIP_NO_ERROR);
-//     uint16_t newDiscriminator = static_cast<uint16_t>(originDiscriminator + 1);
-//     Spake2pVerifier verifier;
-//     constexpr uint32_t kIterations = kSpake2p_Min_PBKDF_Iterations;
-//     uint8_t salt[kSpake2p_Min_PBKDF_Salt_Length];
-//     chip::ByteSpan saltData(salt);
+    // ECM parameters.
+    uint16_t originDiscriminator;
+    EXPECT_EQ(chip::DeviceLayer::GetCommissionableDataProvider()->GetSetupDiscriminator(originDiscriminator), CHIP_NO_ERROR);
+    uint16_t newDiscriminator = static_cast<uint16_t>(originDiscriminator + 1);
+    Spake2pVerifier verifier;
+    constexpr uint32_t kIterations = kSpake2p_Min_PBKDF_Iterations;
+    uint8_t salt[kSpake2p_Min_PBKDF_Salt_Length];
+    chip::ByteSpan saltData(salt);
 
-//     constexpr auto fabricIndex = static_cast<chip::FabricIndex>(1);
-//     constexpr auto vendorId    = static_cast<chip::VendorId>(0xFFF3);
-//     EXPECT_EQ(commissionMgr.OpenEnhancedCommissioningWindow(commissionMgr.MaxCommissioningTimeout(), newDiscriminator, verifier,
-//                                                             kIterations, saltData, fabricIndex, vendorId),
-//               CHIP_NO_ERROR);
-//     EXPECT_TRUE(commissionMgr.IsCommissioningWindowOpen());
-//     EXPECT_EQ(commissionMgr.CommissioningWindowStatusForCluster(),
-//               chip::app::Clusters::AdministratorCommissioning::CommissioningWindowStatusEnum::kEnhancedWindowOpen);
+    constexpr auto fabricIndex = static_cast<chip::FabricIndex>(1);
+    constexpr auto vendorId    = static_cast<chip::VendorId>(0xFFF3);
+    EXPECT_EQ(commissionMgr.OpenEnhancedCommissioningWindow(commissionMgr.MaxCommissioningTimeout(), newDiscriminator, verifier,
+                                                            kIterations, saltData, fabricIndex, vendorId),
+              CHIP_NO_ERROR);
+    EXPECT_TRUE(commissionMgr.IsCommissioningWindowOpen());
+    EXPECT_EQ(commissionMgr.CommissioningWindowStatusForCluster(),
+              chip::app::Clusters::AdministratorCommissioning::CommissioningWindowStatusEnum::kEnhancedWindowOpen);
 
-//     // Creating a PASE Session initiator and establish a connection.
-//     TestSecurePairingDelegate initiatorDelegate;
-//     chip::PASESession pairing;
+    // Creating a PASE Session initiator and establish a connection.
+    TestSecurePairingDelegate initiatorDelegate;
+    chip::PASESession pairing;
 
-//     EXPECT_EQ(pairing.GetSecureSessionType(), chip::Transport::SecureSession::Type::kPASE);
+    EXPECT_EQ(pairing.GetSecureSessionType(), chip::Transport::SecureSession::Type::kPASE);
 
-//     mLoopbackContext.SetUp();
-//     auto context                              = mLoopbackContext.NewUnauthenticatedExchangeToBob(&initiatorPASE);
-//     constexpr uint32_t sTestSpake2p01_PinCode = 20202021;
+    mLoopbackContext.SetUp();
+    auto & loopback = mLoopbackContext.GetLoopback();
+    loopback.Reset();
 
-//     // Start PASE pairing from initiator.
-//     EXPECT_EQ(pairing.Pair(sessionMgr, sTestSpake2p01_PinCode, chip::Optional<chip::ReliableMessageProtocolConfig>::Missing(),
-//                            context, &initiatorDelegate),
-//               CHIP_NO_ERROR);
-//     // EXPECT_EQ();
-//     // msgContext.DrainAndServiceIO();
-//     mLoopbackContext.TearDown();
-// }
+    auto context                              = mLoopbackContext.NewUnauthenticatedExchangeToBob(&pairing);
+    constexpr uint32_t sTestSpake2p01_PinCode = 20202021;
+
+    // Start PASE pairing from initiator.
+    EXPECT_EQ(pairing.Pair(sessionMgr, sTestSpake2p01_PinCode, chip::Optional<chip::ReliableMessageProtocolConfig>::Missing(),
+                           context, &initiatorDelegate),
+              CHIP_NO_ERROR);
+
+    mLoopbackContext.DrainAndServiceIO();
+
+    EXPECT_EQ(loopback.mSentMessageCount, 2u);
+
+    chip::Messaging::ReliableMessageMgr * rm = exchangeMgr.GetReliableMessageMgr();
+    EXPECT_EQ(rm->TestGetCountRetransTable(), 0);
+    loopback.Reset();
+}
 
 } // namespace
