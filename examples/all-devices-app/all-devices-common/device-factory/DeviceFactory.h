@@ -325,7 +325,7 @@ private:
                             ConcentrationMeasurementCluster::Config{
                                 .clusterId = Clusters::CarbonDioxideConcentrationMeasurement::Id,
                                 .features  = BitFlags<Feature>(Feature::kNumericMeasurement, Feature::kPeakMeasurement,
-                                                              Feature::kAverageMeasurement, Feature::kLevelIndication),
+                                                               Feature::kAverageMeasurement, Feature::kLevelIndication),
                                 .medium    = MeasurementMediumEnum::kAir,
                                 .unit      = MeasurementUnitEnum::kPpm,
                             },
@@ -775,6 +775,13 @@ private:
                     .timerDelegate          = mContext->timerDelegate,
                     .diagnosticDataProvider = mContext->diagnosticDataProvider,
                 });
+            });
+        }
+        if constexpr (ALL_DEVICES_ENABLE_WINDOW_COVERING_CONTROLLER)
+        {
+            RegisterCreator("window-covering-controller", [this]() {
+                VerifyOrDie(mContext.has_value());
+                return std::MakeDevice<WindowCoveringController>(mContext->timerDelegate);
             });
         }
 
