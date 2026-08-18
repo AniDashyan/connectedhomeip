@@ -59,6 +59,7 @@
 #include <device/types/temperature-sensor/impl/IncreasingTemperatureSensor.h>
 #include <device/types/water-valve/WaterValve.h>
 #include <device/types/window-covering/impl/LoggingWindowCovering.h>
+#include <device/types/window-covering-controller/WindowCoveringController.h>
 #include <devices/Types.h>
 #include <lib/core/CHIPError.h>
 #include <lib/core/CHIPPersistentStorageDelegate.h>
@@ -553,6 +554,13 @@ private:
                     .groupDataProvider = mContext->groupDataProvider,
                     .timerDelegate     = mContext->timerDelegate,
                 });
+            });
+        }
+        if constexpr (ALL_DEVICES_ENABLE_WINDOW_COVERING_CONTROLLER)
+        {
+            RegisterCreator("window-covering-controller", [this]() {
+                VerifyOrDie(mContext.has_value());
+                return std::make_unique<WindowCoveringController>(mContext->timerDelegate);
             });
         }
 
