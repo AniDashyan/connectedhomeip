@@ -58,8 +58,8 @@
 #include <device/types/speaker/impl/LoggingSpeaker.h>
 #include <device/types/temperature-sensor/impl/IncreasingTemperatureSensor.h>
 #include <device/types/water-valve/WaterValve.h>
-#include <device/types/window-covering/impl/LoggingWindowCovering.h>
 #include <device/types/window-covering-controller/WindowCoveringController.h>
+#include <device/types/window-covering/impl/LoggingWindowCovering.h>
 #include <devices/Types.h>
 #include <lib/core/CHIPError.h>
 #include <lib/core/CHIPPersistentStorageDelegate.h>
